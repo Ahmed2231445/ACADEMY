@@ -4228,3 +4228,6 @@ body.theme-brown .home-course-card:hover,
 body.theme-brown .home-quick-card:hover {
   border-color: var(--gold);
 }
+body.lang-ar {
+  direction: rtl;
+}
