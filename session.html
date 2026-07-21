@@ -361,11 +361,22 @@ const COURSE_KEY_MAP = { coding:"programming", arabic:"arabic", other:"other", e
 const COURSE_LABELS = { english:"English", programming:"Programming", arabic:"Arabic", other:"Other" };
  
 /* ================= أدوات عامة ================= */
-async function api(action, params){
+async function api(action, params, retries = 2) {
   const body = new URLSearchParams({ action, ...params });
-  const res = await fetch(API_URL, { method:"POST", body });
-  const text = await res.text();
-  try { return JSON.parse(text); } catch(e){ return null; }
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(API_URL, { method: 'POST', body, signal: controller.signal });
+      clearTimeout(timeoutId);
+      const text = await res.text();
+      try { return JSON.parse(text); } catch(e) { return null; }
+    } catch (e) {
+      clearTimeout(timeoutId);
+      if (attempt === retries) return null;
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1))); // تأخير تصاعدي
+    }
+  }
 }
 function isArabic(){ return true; }
 function nowTs(){ return Date.now(); }
@@ -398,6 +409,12 @@ let handRaised = false;
 let lastSignalTs = 0;
 let lobbyTimer = null, presenceTimer = null, signalTimer = null;
 let knownSessions = [];
+let audioContext = null;
+let audioAnalyser = null;
+let audioDataArray = null;
+let isSpeaking = false;
+let speakingTimeout = null;
+
  
 /* ================= شاشة الدخول ================= */
 try{
@@ -697,6 +714,9 @@ document.getElementById('scheduleSubmit').addEventListener('click', async ()=>{
 /* ================= غرفة الاتصال (WebRTC) ================= */
 const RTC_CONFIG = { iceServers:[{urls:'stun:stun.l.google.com:19302'}] };
  
+let pollingTimer = null;
+let pollInterval = 500;
+
 async function joinCall(session){
   currentSession = session; currentRoom='main'; lastSignalTs = 0; handRaised=false;
   document.getElementById('lobbyScreen').classList.add('hidden');
@@ -712,142 +732,292 @@ async function joinCall(session){
     catch(e2){ localStream = new MediaStream(); }
   }
   addTile(myUsername, myDisplay, localStream, true);
+  startAudioAnalysis(localStream);
  
-  clearInterval(presenceTimer); clearInterval(signalTimer);
-  pingPresence();
-  presenceTimer = setInterval(()=>{ pingPresence(); syncParticipants(); }, 2000);
-signalTimer = setInterval(pollSignals, 500);   // 0.5 ثانية بدلاً من 1.5 ثانية
+  // تحديث فوري للحضور
+  await syncParticipants();
+  
+  // بدء نظام polling الذكي
+  startPolling();
+}
+
+function startPolling() {
+  if (pollingTimer) clearTimeout(pollingTimer);
+  let lastList = '';
+  async function poll() {
+    if (!currentSession) {
+      pollingTimer = null;
+      return;
+    }
+    await pingPresence();
+    const changed = await syncParticipants();
+    await pollSignals();
+    // ضبط الفترة ديناميكياً
+    if (!changed) {
+      pollInterval = Math.min(pollInterval + 50, 800);
+    } else {
+      pollInterval = 500;
+    }
+    pollingTimer = setTimeout(poll, pollInterval);
+  }
+  poll();
+}
+
+// ===== تحليل الصوت للكشف عن التحدث =====
+function startAudioAnalysis(stream) {
+  if (!stream) return;
+  const audioTrack = stream.getAudioTracks()[0];
+  if (!audioTrack) return;
+  
+  try {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioAnalyser = audioContext.createAnalyser();
+    audioAnalyser.fftSize = 256;
+    audioAnalyser.smoothingTimeConstant = 0.8;
+    
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(audioAnalyser);
+    audioDataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+    
+    // بدء التحليل الدوري
+    analyzeAudio();
+  } catch(e) {
+    console.warn('فشل تحليل الصوت:', e);
+  }
+}
+
+function analyzeAudio() {
+  if (!audioAnalyser || !audioDataArray) return;
+  
+  audioAnalyser.getByteFrequencyData(audioDataArray);
+  let sum = 0;
+  for (let i = 0; i < audioDataArray.length; i++) {
+    sum += audioDataArray[i];
+  }
+  const avg = sum / audioDataArray.length;
+  const threshold = 15; // يمكنك تعديل هذه القيمة (كلما زادت، كلما احتجت صوتاً أعلى)
+  
+  const currentlySpeaking = avg > threshold;
+  
+  // منع التقلبات السريعة (Debouncing)
+  if (currentlySpeaking !== isSpeaking) {
+    // إذا بدأ يتكلم
+    if (currentlySpeaking) {
+      // إلغاء أي تايمر سابق
+      if (speakingTimeout) {
+        clearTimeout(speakingTimeout);
+        speakingTimeout = null;
+      }
+      // تحديث الحالة فوراً
+      updateSpeakingState(true);
+    } else {
+      // إذا توقف عن الكلام، انتظر 300 مللي قبل إطفاء الإضاءة
+      if (speakingTimeout) clearTimeout(speakingTimeout);
+      speakingTimeout = setTimeout(() => {
+        updateSpeakingState(false);
+        speakingTimeout = null;
+      }, 300);
+    }
+  }
+  
+  // استمرار التحليل
+  requestAnimationFrame(analyzeAudio);
+}
+
+// دالة مساعدة لتحديث الحالة وإرسال الإشارات
+function updateSpeakingState(state) {
+  if (isSpeaking === state) return;
+  isSpeaking = state;
+  
+  // تحديث البلاطة المحلية
+  const tile = document.getElementById('tile-' + cssSafe(myUsername));
+  if (tile) {
+    tile.classList.toggle('talking', isSpeaking);
+  }
+  
+  // إرسال إشارة للآخرين
+  Object.keys(peers).forEach(u => {
+    api('signal', { 
+      sessionId: currentSession.id, 
+      from: myUsername, 
+      to: u, 
+      msgType: 'speaking', 
+      payload: JSON.stringify({ on: isSpeaking }) 
+    });
+  });
 }
  
+
 async function pingPresence(){
   if(!currentSession) return;
   await api('presence_ping', { sessionId:currentSession.id, username:myUsername, displayName:myDisplay, room:currentRoom });
 }
  
-async function syncParticipants(){
-  if(!currentSession) return;
+async function syncParticipants() {
+  if (!currentSession) return false;
   const list = await api('presence_list', { sessionId: currentSession.id });
-  if(!Array.isArray(list)) return;
+  if (!Array.isArray(list)) return false;
   document.getElementById('participantCount').textContent = list.length + ' مشارك';
+  
+  // فلترة المشاركين في نفس الغرفة
   const inMyRoom = list.filter(p => p.username !== myUsername && p.room === currentRoom);
-  // اتصل بأي شخص جديد في نفس الغرفة
-  inMyRoom.forEach(p=>{
-    if(!peers[p.username]){
+  const newUsernames = new Set(inMyRoom.map(p => p.username));
+  const oldUsernames = new Set(Object.keys(peers));
+  
+  // التحقق من وجود تغيير
+  const changed = (newUsernames.size !== oldUsernames.size) ||
+                  [...newUsernames].some(u => !oldUsernames.has(u)) ||
+                  [...oldUsernames].some(u => !newUsernames.has(u));
+  
+  if (!changed) return false;
+  
+  // بدء اتصال مع المستخدمين الجدد
+  inMyRoom.forEach(p => {
+    if (!peers[p.username]) {
       const shouldOffer = myUsername < p.username;
       startPeer(p.username, p.displayName, shouldOffer);
     }
   });
-  // اقفل أي اتصال لشخص خرج أو غيّر غرفة
-  Object.keys(peers).forEach(u=>{
-    if(!inMyRoom.find(p=>p.username===u)){
+  
+  // إغلاق اتصال من خرج
+  Object.keys(peers).forEach(u => {
+    if (!newUsernames.has(u)) {
       closePeer(u);
     }
   });
-  // لو المضيف حرّكني لغرفة تانية (اتقري من presence بتاعي نفسه لو اتغيرت من السيرفر)
-  const mine = list.find(p=>p.username===myUsername);
-  if(mine && mine.room && mine.room !== currentRoom){
+  
+  // تغيير الغرفة إذا تم نقلي
+  const mine = list.find(p => p.username === myUsername);
+  if (mine && mine.room && mine.room !== currentRoom) {
     currentRoom = mine.room;
     Object.keys(peers).forEach(closePeer);
   }
+  return true;
 }
  
+const connectingPeers = new Set();
+
 function startPeer(username, displayName, isOfferer) {
+  if (connectingPeers.has(username) || peers[username]) return;
+  connectingPeers.add(username);
+  
   const pc = new RTCPeerConnection(RTC_CONFIG);
-
-  pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'connected') {
-      pc.getSenders().forEach(sender => {
-        if (sender.track && sender.track.kind === 'video') {
-          try {
-            const params = sender.getParameters();
-            if (!params.encodings) params.encodings = [{}];
-            params.encodings[0].maxBitrate = 300000;
-            sender.setParameters(params);
-          } catch(e) {}
-        }
-      });
-    }
-  };
-
+  
+  if (localStream) {
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  }
+  if (screenStream) {
+    screenStream.getTracks().forEach(track => {
+      const sender = pc.addTrack(track, screenStream);
+      if (track.kind === 'video') {
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 1500000;
+          sender.setParameters(params);
+        } catch(e) {}
+      }
+    });
+  }
+  
   peers[username] = pc;
-  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
+  connectingPeers.delete(username);
+  
   pc.onicecandidate = (ev) => {
     if (ev.candidate) {
       api('signal', { sessionId: currentSession.id, from: myUsername, to: username, msgType: 'candidate', payload: JSON.stringify(ev.candidate) });
     }
   };
-
-  // ✅ تعديل ontrack ليميز مسار الشاشة
+  
   pc.ontrack = (ev) => {
     const isScreen = ev.track && ev.track.label === 'screen';
     const tileId = isScreen ? username + '_screen' : username;
     const display = displayName + (isScreen ? ' (شاشة)' : '');
     const existing = document.getElementById('tile-' + cssSafe(tileId));
     if (existing) {
-      // تحديث الدفق إذا كانت البلاطة موجودة
       const video = existing.querySelector('video');
       if (video) video.srcObject = ev.streams[0];
     } else {
-      // إضافة بلاطة جديدة
       addTile(tileId, display, ev.streams[0], false, isScreen);
     }
   };
-
+  
   if (isOfferer) {
     pc.onnegotiationneeded = async () => {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      api('signal', { sessionId: currentSession.id, from: myUsername, to: username, msgType: 'offer', payload: JSON.stringify(offer) });
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        api('signal', { sessionId: currentSession.id, from: myUsername, to: username, msgType: 'offer', payload: JSON.stringify(offer) });
+      } catch(e) {}
     };
   }
 }
  
-async function pollSignals(){
-  if(!currentSession) return;
-  const list = await api('poll_signals', { sessionId:currentSession.id, me:myUsername, since:lastSignalTs });
-  if(!Array.isArray(list) || list.length===0) return;
-  for(const sig of list){
-    lastSignalTs = Math.max(lastSignalTs, Number(sig.ts)||0);
+async function pollSignals() {
+  if (!currentSession) return;
+  const list = await api('poll_signals', { sessionId: currentSession.id, me: myUsername, since: lastSignalTs });
+  if (!Array.isArray(list) || list.length === 0) return;
+  let maxTs = lastSignalTs;
+  for (const sig of list) {
+    const ts = Number(sig.ts) || 0;
+    if (ts > maxTs) maxTs = ts;
     await handleSignal(sig);
   }
+  lastSignalTs = maxTs;
 }
  
 async function handleSignal(sig) {
   const from = sig.from;
   let payload = {};
   try { payload = JSON.parse(sig.payload); } catch(e) {}
-
+  
   if (sig.msgType === 'offer') {
     let pc = peers[from];
-    if (!pc) { startPeer(from, from, false); pc = peers[from]; }
-    await pc.setRemoteDescription(new RTCSessionDescription(payload));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    api('signal', { sessionId: currentSession.id, from: myUsername, to: from, msgType: 'answer', payload: JSON.stringify(answer) });
+    if (!pc) {
+      if (connectingPeers.has(from)) return;
+      startPeer(from, from, false);
+      pc = peers[from];
+    }
+    if (pc) {
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        api('signal', { sessionId: currentSession.id, from: myUsername, to: from, msgType: 'answer', payload: JSON.stringify(answer) });
+      } catch(e) {}
+    }
   } else if (sig.msgType === 'answer') {
-    const pc = peers[from]; if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload));
+    const pc = peers[from];
+    if (pc) {
+      try { await pc.setRemoteDescription(new RTCSessionDescription(payload)); } catch(e) {}
+    }
   } else if (sig.msgType === 'candidate') {
-    const pc = peers[from]; if (pc) { try { await pc.addIceCandidate(payload); } catch(e) {} }
+    const pc = peers[from];
+    if (pc) {
+      try { await pc.addIceCandidate(payload); } catch(e) {}
+    }
   } else if (sig.msgType === 'hand') {
     showHand(from, payload.on);
   } else if (sig.msgType === 'reaction') {
     showReaction(from, payload.emoji);
+    } else if (sig.msgType === 'speaking') {
+  const tile = document.getElementById('tile-' + cssSafe(from));
+  if (tile) {
+    tile.classList.toggle('talking', payload.on);
+    
+  }
+
   } else if (sig.msgType === 'screen_start') {
-    // شخص آخر بدأ مشاركة الشاشة - نضيف بلاطة شاشة فارغة (سيتم ملؤها عبر ontrack)
+
     const displayName = payload.displayName || from;
-    // نضيف بلاطة الشاشة في الشريط العلوي (بدون دفق حتى يصل عبر ontrack)
     const tileId = from + '_screen';
     const existing = document.getElementById('tile-' + cssSafe(tileId));
     if (!existing) {
-      // نضيف بلاطة مؤقتة لتظهر في الشريط، وسيتم تحديث الدفق لاحقاً
       addTile(tileId, displayName + ' (شاشة)', new MediaStream(), false, true);
     }
   } else if (sig.msgType === 'screen_stop') {
-    // إزالة بلاطة شاشة هذا المستخدم
     const tile = document.getElementById('tile-' + cssSafe(from + '_screen'));
     if (tile) tile.remove();
-    // إعادة تنظيم الشريط
     const bar = document.getElementById('screenShareBar');
     if (bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
   }
@@ -978,42 +1148,64 @@ document.getElementById('camBtn').addEventListener('click', function(){
 });
 document.getElementById('screenBtn').addEventListener('click', async function(){
   if(screenStream){
-    // إيقاف المشاركة
-    screenStream.getTracks().forEach(t=>t.stop());
-    screenStream = null;
-    // إزالة بلاطة الشاشة المحلية
-    const tile = document.getElementById('tile-'+cssSafe(myUsername+'_screen'));
-    if(tile) tile.remove();
-    // إزالة المسار من جميع الاتصالات
-    Object.values(peers).forEach(pc => {
-      const senders = pc.getSenders().filter(s => s.track && s.track.kind === 'video' && s.track.label === 'screen');
-      senders.forEach(s => pc.removeTrack(s));
-    });
-    // إرسال إشارة توقف للآخرين
-    Object.keys(peers).forEach(u => {
-      api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'screen_stop', payload:'' });
-    });
-    this.classList.remove('active');
-    // إعادة ضبط الشبكة
-    const bar = document.getElementById('screenShareBar');
-    if(bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
-    return;
-  }
+  // إيقاف المشاركة
+  screenStream.getTracks().forEach(t => t.stop());
+  screenStream = null;
+
+  // إزالة بلاطة الشاشة المحلية
+  const tile = document.getElementById('tile-' + cssSafe(myUsername + '_screen'));
+  if (tile) tile.remove();
+
+  // إزالة جميع مسارات الشاشة من كل اتصال
+  Object.values(peers).forEach(pc => {
+    const senders = pc.getSenders().filter(s => s.track && s.track.kind === 'video' && s.track.label === 'screen');
+    senders.forEach(s => pc.removeTrack(s));
+    // إزالة مسار الصوت أيضاً
+    const audioSenders = pc.getSenders().filter(s => s.track && s.track.kind === 'audio' && s.track.label === 'screen');
+    audioSenders.forEach(s => pc.removeTrack(s));
+  });
+
+  // إرسال إشارة توقف للآخرين
+  Object.keys(peers).forEach(u => {
+    api('signal', { sessionId: currentSession.id, from: myUsername, to: u, msgType: 'screen_stop', payload: '' });
+  });
+
+  this.classList.remove('active');
+
+  // إعادة ضبط الشريط
+  const bar = document.getElementById('screenShareBar');
+  if (bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
+
+  return;
+}
 
   try{
-    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
+    screenStream = await navigator.mediaDevices.getDisplayMedia({
+  video: { cursor: 'always', frameRate: 30},
+  audio: true 
+});
     const screenTrack = screenStream.getVideoTracks()[0];
     screenTrack.label = 'screen';
     
-    // إضافة البلاطة المحلية للشاشة
+    // إضافة البلاطة المحلية
     addTile(myUsername + '_screen', myDisplay + ' (شاشة)', screenStream, false, true);
     
-    // إضافة المسار لجميع الأطراف المتصلة
-    Object.values(peers).forEach(pc => {
-      pc.addTrack(screenTrack, screenStream);
-    });
+    // إضافة جميع مسارات الشاشة لكل متصل مع ضبط الجودة العالية
+Object.values(peers).forEach(pc => {
+  screenStream.getTracks().forEach(track => {
+    const sender = pc.addTrack(track, screenStream);
+    if (track.kind === 'video') {
+      try {
+        const params = sender.getParameters();
+        if (!params.encodings) params.encodings = [{}];
+        params.encodings[0].maxBitrate = 1500000;
+        sender.setParameters(params);
+      } catch(e) {}
+    }
+  });
+});
     
-    // إرسال إشارة بدء للآخرين (ليضيفوا المسار)
+    // إرسال إشارة بدء للآخرين (لإظهار البلاطة الفارغة فوراً)
     Object.keys(peers).forEach(u => {
       api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'screen_start', payload:JSON.stringify({displayName:myDisplay}) });
     });
@@ -1045,7 +1237,18 @@ document.getElementById('emojiPop').addEventListener('click', (e)=>{
 document.getElementById('leaveBtn').addEventListener('click', leaveCall);
  
 function leaveCall(){
-  clearInterval(presenceTimer); clearInterval(signalTimer);
+  if (audioContext) {
+  audioContext.close();
+  audioContext = null;
+  audioAnalyser = null;
+  audioDataArray = null;
+  isSpeaking = false;
+}
+  clearTimeout(pollingTimer);
+  pollingTimer = null;
+  connectingPeers.clear();
+  clearInterval(presenceTimer);
+  clearInterval(signalTimer);
   Object.keys(peers).forEach(closePeer);
   if(localStream) localStream.getTracks().forEach(t=>t.stop());
   if(screenStream) screenStream.getTracks().forEach(t=>t.stop());
