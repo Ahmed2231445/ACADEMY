@@ -2393,32 +2393,7 @@ if (appPronunciationLink) {
   });
   observer.observe(document.getElementById('appPronunciationContent') || document.body, { attributes: true, attributeFilter: ['style'] });
 })();
-(function () {
-    const threshold = 160;
 
-    setInterval(function () {
-        const widthDiff = window.outerWidth - window.innerWidth;
-        const heightDiff = window.outerHeight - window.innerHeight;
-
-        if (widthDiff > threshold || heightDiff > threshold) {
-            document.body.innerHTML = `
-                <div style="
-                    position:fixed;
-                    inset:0;
-                    background:#111;
-                    color:white;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    font-size:24px;
-                    font-family:Arial;
-                ">
-                    Developer Tools are not allowed
-                </div>
-            `;
-        }
-    }, 500);
-})();
 document.addEventListener("keydown", function (e) {
     // منع Ctrl + U
     if (e.ctrlKey && e.key.toLowerCase() === "u") {
