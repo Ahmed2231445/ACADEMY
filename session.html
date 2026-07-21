@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study House — جلسة مباشرة</title>
+<style>
+:root{
+  --gold:#e3a335; --gold-dark:#c9821f; --gold-light:#f6dfae;
+  --ink:#1b1b1b; --ink-soft:#4a4a4a; --muted:#767676;
+  --bg:#faf8f4; --card:#ffffff; --border:#ece7dd;
+  --radius-lg:22px; --radius-md:14px; --radius-sm:10px;
+  --shadow:0 20px 40px -20px rgba(27,27,27,.15);
+}
+body.theme-brown{
+  --ink:#f5efe8; --ink-soft:#d6cdc4; --muted:#b3a69a;
+  --bg:#1e1410; --card:rgba(30,20,16,.75); --border:rgba(180,150,130,.22);
+  --gold:#e0b05e; --gold-dark:#c9953f; --gold-light:#f0dbb8;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;transition:background .4s ease;}
+button,input,select,textarea{font-family:inherit;}
+.hidden{display:none !important;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:999px;font-weight:700;font-size:.92rem;border:2px solid transparent;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#fff;box-shadow:0 10px 20px -10px rgba(201,130,31,.55);}
+.btn-primary:hover{transform:translateY(-2px);}
+.btn-outline{background:transparent;border-color:var(--border);color:var(--ink);}
+.btn-outline:hover{background:var(--gold-light);border-color:var(--gold-light);color:var(--gold-dark);}
+.btn-danger{background:#c0392b;color:#fff;}
+.btn:disabled{opacity:.5;cursor:default;transform:none;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);}
+.input{width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);background:var(--bg);color:var(--ink);font-size:.94rem;outline:none;transition:border-color .2s ease,box-shadow .2s ease;}
+.input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(227,163,53,.18);}
+label.lbl{display:block;font-size:.82rem;font-weight:700;color:var(--muted);margin:12px 0 6px;}
+ 
+.theme-toggle{position:fixed;top:16px;left:16px;z-index:50;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--gold-dark);font-weight:700;font-size:.8rem;cursor:pointer;box-shadow:var(--shadow);}
+ 
+/* ===== شاشة الدخول ===== */
+.screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-card{width:min(420px,100%);padding:40px 32px;text-align:center;}
+.login-card h1{margin:0 0 4px;font-size:1.5rem;font-weight:800;}
+.login-card .accent{color:var(--gold);}
+.login-card p{color:var(--muted);margin:0 0 24px;font-size:.9rem;}
+.login-card form{display:flex;flex-direction:column;gap:4px;text-align:right;}
+.login-card .btn{margin-top:18px;width:100%;}
+ 
+/* ===== اللوبي ===== */
+.lobby-wrap{max-width:920px;margin:0 auto;padding:70px 20px 40px;}
+.lobby-head{text-align:center;margin-bottom:30px;}
+.lobby-head h2{margin:0 0 6px;font-size:1.5rem;font-weight:800;}
+.lobby-head p{color:var(--muted);margin:0;}
+.admin-actions{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:34px;}
+.admin-actions .btn{padding:16px 30px;font-size:1rem;}
+.session-list{display:flex;flex-direction:column;gap:14px;}
+.session-item{display:flex;align-items:center;gap:16px;padding:18px 20px;flex-wrap:wrap;}
+.session-badge{padding:6px 14px;border-radius:999px;background:var(--gold-light);color:var(--gold-dark);font-weight:700;font-size:.78rem;flex-shrink:0;}
+.session-meta{flex:1;min-width:180px;}
+.session-meta strong{display:block;font-size:1rem;margin-bottom:3px;}
+.session-meta span{color:var(--muted);font-size:.84rem;}
+.session-count{font-weight:800;color:var(--gold-dark);font-variant-numeric:tabular-nums;font-size:.9rem;}
+.empty-state{text-align:center;color:var(--muted);font-style:italic;padding:50px 20px;}
+.session-item .btn{flex-shrink:0;}
+ 
+/* ===== مودال الجدولة ===== */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{width:min(560px,100%);max-height:88vh;overflow-y:auto;padding:30px 26px;}
+.modal-box h3{margin:0 0 4px;font-size:1.2rem;font-weight:800;}
+.modal-box .close-x{position:absolute;top:14px;left:14px;width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:1.1rem;color:var(--muted);}
+.modal-box{position:relative;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;}
+.modal-actions .btn{flex:1;}
+.chk-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px;font-size:.88rem;}
+.err-txt{color:#c0392b;font-size:.8rem;min-height:16px;margin:8px 0 0;}
+ 
+/* ===== غرفة الاتصال ===== */
+.call-wrap{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;flex-direction:column;}
+.call-top{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0;}
+.call-top strong{font-size:.95rem;}
+.call-top .rec{color:#c0392b;font-size:.78rem;font-weight:700;}
+.video-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:14px;overflow-y:auto;align-content:start;}
+.tile{position:relative;background:#000;border-radius:16px;overflow:hidden;aspect-ratio:4/3;border:2px solid transparent;}
+.tile.talking{border-color:var(--gold);}
+.tile video{width:100%;height:100%;object-fit:cover;}
+.tile .no-cam{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2a2a2a,#111);}
+.tile .avatar-circle{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2rem;}
+.tile .name-tag{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:.76rem;padding:4px 10px;border-radius:999px;display:flex;align-items:center;gap:6px;}
+.tile .hand-badge{position:absolute;top:8px;right:8px;font-size:1.3rem;animation:handWave 1s ease-in-out infinite;}
+.tile .mute-badge{position:absolute;top:8px;left:8px;background:rgba(192,57,43,.85);color:#fff;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;}
+@keyframes handWave{0%,100%{transform:rotate(-15deg);}50%{transform:rotate(15deg);}}
+.reaction-float{position:absolute;bottom:40%;left:50%;transform:translateX(-50%);font-size:2rem;animation:reactUp 1.8s ease forwards;pointer-events:none;}
+@keyframes reactUp{from{opacity:1;transform:translate(-50%,0);}to{opacity:0;transform:translate(-50%,-60px);}}
+ 
+.call-bar{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;border-top:1px solid var(--border);background:var(--card);flex-wrap:wrap;flex-shrink:0;position:relative;}
+.ctrl-btn{width:52px;height:52px;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.15rem;transition:background .2s ease,transform .2s ease;}
+.ctrl-btn:hover{transform:translateY(-2px);}
+.ctrl-btn.off{background:#c0392b;color:#fff;border-color:transparent;}
+.ctrl-btn.active{background:var(--gold);color:#fff;border-color:transparent;}
+.ctrl-btn.leave{background:#c0392b;color:#fff;border-color:transparent;}
+.emoji-pop{position:absolute;bottom:70px;display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 12px;box-shadow:var(--shadow);}
+.emoji-pop span{cursor:pointer;font-size:1.3rem;transition:transform .15s ease;}
+.emoji-pop span:hover{transform:scale(1.3);}
+ 
+/* غرف فرعية - لوحة المضيف */
+.rooms-panel{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px;}
+.rooms-box{width:min(560px,100%);max-height:82vh;overflow-y:auto;padding:26px;position:relative;}
+.room-participant-row{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:8px;}
+.room-participant-row span{flex:1;font-size:.9rem;font-weight:600;}
+.room-participant-row select{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--ink);}
+ 
+@media (max-width:600px){
+  .video-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));}
+  .ctrl-btn{width:44px;height:44px;font-size:1rem;}
+}
+.video-grid{
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: flex-start;
+  gap: 8px;
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+.tile{
+  position: relative;
+  background: #1a1a1a;
+  border-radius: 12px;
+  overflow: hidden;
+  width: 180px;          /* حجم صغير ومناسب */
+  height: 135px;         /* نسبة 4:3 */
+  flex: 0 0 auto;
+  border: 2px solid transparent;
+  transition: border 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.tile video{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* عند التحدث (اختياري) */
+.tile.talking{
+  border-color: var(--gold);
+  box-shadow: 0 0 15px rgba(227,163,53,0.4);
+}
+/* تحسين شكل الأسماء */
+.tile .name-tag{
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* الأيقونات فوق الفيديو */
+.tile .hand-badge, .tile .mute-badge {
+  position: absolute;
+  top: 6px;
+  font-size: 18px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tile .hand-badge { right: 6px; }
+.tile .mute-badge { left: 6px; background: rgba(192,57,43,0.85); color:#fff; font-size:12px; }
+/* شريط الشاشات المشتركة */
+.screen-share-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #111;
+  overflow-x: auto;
+  border-bottom: 2px solid var(--gold);
+  flex-shrink: 0;
+  min-height: 120px;
+  align-items: center;
+}
+.screen-share-bar .tile {
+  width: 250px;
+  height: 140px;
+  flex: 0 0 auto;
+  border-color: var(--gold);
+  border-width: 3px;
+}
+.screen-share-bar .tile video {
+  object-fit: contain; /* عشان تظهر الشاشة كاملة */
+  background: #000;
+}
+/* أزرار التنقل بين الشاشات */
+.screen-nav-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  padding: 8px 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.screen-nav-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+/* تحسين شكل البلاطة عند ملء الشاشة */
+.tile:-webkit-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+.tile:-moz-full-screen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+.tile:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw;
+  max-height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+.tile:fullscreen .name-tag {
+  font-size: 1.2rem;
+  padding: 8px 16px;
+}
+.tile:fullscreen .hand-badge {
+  font-size: 2.5rem;
+}
+</style>
+</head>
+<body>
+ 
+<button class="theme-toggle" id="themeToggle">🎨 <span id="themeToggleLabel">الثيم البني</span></button>
+<button class="theme-toggle" id="logoutBtn" style="left: auto; right: 16px; border-color: #c0392b; color: #c0392b;">
+  🚪 تسجيل الخروج
+</button>
+ 
+<!-- شاشة الدخول -->
+<div class="screen" id="loginScreen">
+  <div class="card login-card">
+    <h1>Study <span class="accent">House</span></h1>
+    <p>جلسة مباشرة — أدخل بياناتك للمتابعة</p>
+    <form id="loginForm">
+      <label class="lbl">اسم المستخدم (سري، يستخدمه المعلم فقط للدعوة)</label>
+      <input class="input" id="loginUsername" required autocomplete="off">
+      <label class="lbl">الاسم الذي سيظهر للجميع</label>
+      <input class="input" id="loginDisplay" required autocomplete="off">
+      <button type="submit" class="btn btn-primary">دخول</button>
+      <p class="err-txt" id="loginErr"></p>
+    </form>
+  </div>
+</div>
+ 
+<!-- اللوبي -->
+<div class="screen hidden" id="lobbyScreen" style="align-items:flex-start;">
+  <div class="lobby-wrap">
+    <div class="lobby-head">
+      <h2>جلسة <span class="accent" style="color:var(--gold)">مباشرة</span></h2>
+      <p id="lobbySubText">قائمة انتظار الجلسات</p>
+    </div>
+ 
+    <div class="admin-actions hidden" id="adminActions">
+      <button class="btn btn-primary" id="createNowBtn">▶ إنشاء جلسة الآن</button>
+      <button class="btn btn-outline" id="scheduleBtn">🗓 حجز جلسة</button>
+    </div>
+ 
+    <div class="session-list" id="sessionList"></div>
+  </div>
+</div>
+ 
+<!-- مودال حجز جلسة -->
+<div class="modal-overlay hidden" id="scheduleModal">
+  <div class="card modal-box">
+    <button class="close-x" id="scheduleClose">&times;</button>
+    <h3>حجز جلسة جديدة</h3>
+    <label class="lbl">الكورس</label>
+    <select class="input" id="schCourse">
+      <option value="english">English</option>
+      <option value="programming">Programming</option>
+      <option value="arabic">Arabic</option>
+      <option value="other">Other</option>
+    </select>
+    <label class="lbl">التاريخ</label>
+    <input type="date" class="input" id="schDate">
+    <label class="lbl">الوقت</label>
+    <input type="time" class="input" id="schTime">
+    <label class="lbl">تفاصيل الجلسة</label>
+    <textarea class="input" id="schDetails" rows="3" placeholder="مثال: مراجعة الوحدة الثالثة"></textarea>
+    <label class="lbl">أسماء المستخدمين المدعوين (افصل بفاصلة ,)</label>
+    <textarea class="input" id="schStudents" rows="2" placeholder="username1, username2, username3"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="scheduleCancel">إلغاء</button>
+      <button class="btn btn-primary" id="scheduleSubmit">حجز الجلسة</button>
+    </div>
+    <p class="err-txt" id="scheduleErr"></p>
+  </div>
+</div>
+ 
+<!-- غرفة الاتصال -->
+<div class="call-wrap hidden" id="callScreen">
+  <div class="call-top">
+    <strong id="callTitle">جلسة مباشرة</strong>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="participantCount" style="font-size:.82rem;color:var(--muted);"></span>
+      <button class="btn btn-outline hidden" id="roomsBtn" style="padding:8px 16px;font-size:.8rem;">👥 الغرف الفرعية</button>
+    </div>
+  </div>
+  <div class="video-grid" id="videoGrid"></div>
+  <div class="call-bar">
+    <button class="ctrl-btn" id="micBtn" title="الميكروفون">🎤</button>
+    <button class="ctrl-btn" id="camBtn" title="الكاميرا">📷</button>
+    <button class="ctrl-btn" id="screenBtn" title="مشاركة الشاشة">🖥️</button>
+    <button class="ctrl-btn" id="handBtn" title="رفع اليد">✋</button>
+    <div style="position:relative;">
+      <button class="ctrl-btn" id="emojiBtn" title="تفاعل">😊</button>
+      <div class="emoji-pop hidden" id="emojiPop">
+        <span data-e="👍">👍</span><span data-e="❤️">❤️</span><span data-e="😂">😂</span><span data-e="👏">👏</span><span data-e="🎉">🎉</span>
+      </div>
+    </div>
+    <button class="ctrl-btn leave" id="leaveBtn" title="مغادرة">📞</button>
+  </div>
+</div>
+ 
+<!-- لوحة الغرف الفرعية (للمعلم) -->
+<div class="rooms-panel hidden" id="roomsPanel">
+  <div class="card rooms-box">
+    <button class="close-x" id="roomsClose">&times;</button>
+    <h3>توزيع الغرف الفرعية</h3>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:0;">اختر الغرفة لكل مشارك</p>
+    <div id="roomsList"></div>
+    <button class="btn btn-outline" id="addRoomBtn" style="width:100%;margin-top:10px;">+ إضافة غرفة جديدة</button>
+  </div>
+</div>
+ 
+<script>
+/* ================= الإعدادات ================= */
+// ضع هنا رابط الويب أب بعد نشر Apps Script (انظر التعليمات في الشات)
+const API_URL = "https://script.google.com/macros/s/AKfycbyEnXTQ2D82yDGyfXyWvWfkR5wjUbVu0gKWlDVZMDVXkmhqDQyUvNpxUBIVCILIBX_n/exec";
+const ADMIN_USERNAME = "admin@333";
+const COURSE_KEY_MAP = { coding:"programming", arabic:"arabic", other:"other", english:"english" };
+const COURSE_LABELS = { english:"English", programming:"Programming", arabic:"Arabic", other:"Other" };
+ 
+/* ================= أدوات عامة ================= */
+async function api(action, params){
+  const body = new URLSearchParams({ action, ...params });
+  const res = await fetch(API_URL, { method:"POST", body });
+  const text = await res.text();
+  try { return JSON.parse(text); } catch(e){ return null; }
+}
+function isArabic(){ return true; }
+function nowTs(){ return Date.now(); }
+ 
+/* ================= الثيم ================= */
+function applyTheme(theme){
+  document.body.classList.toggle('theme-brown', theme==='brown');
+  document.getElementById('themeToggleLabel').textContent = theme==='brown' ? 'الثيم الذهبي' : 'الثيم البني';
+  try{ localStorage.setItem('studyhouse-theme', theme); }catch(e){}
+}
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  const isBrown = document.body.classList.contains('theme-brown');
+  applyTheme(isBrown ? 'gold' : 'brown');
+});
+let savedTheme='gold';
+try{ savedTheme = localStorage.getItem('studyhouse-theme') || 'gold'; }catch(e){}
+applyTheme(savedTheme);
+ 
+/* ================= الحالة العامة ================= */
+let myUsername = null, myDisplay = null, isAdmin = false;
+let currentSession = null;   // كائن الجلسة الحالية
+let currentRoom = 'main';
+let localStream = null;
+let screenStream = null;
+let screenTiles = {}; // لتخزين معرفات بلاطات الشاشة
+let sharedScreens = []; // قائمة بأسماء المستخدمين الذين يشاركون الشاشة
+let currentScreenIndex = 0;
+let peers = {};              // username -> RTCPeerConnection
+let handRaised = false;
+let lastSignalTs = 0;
+let lobbyTimer = null, presenceTimer = null, signalTimer = null;
+let knownSessions = [];
+ 
+/* ================= شاشة الدخول ================= */
+try{
+  myUsername = localStorage.getItem('sh-session-username');
+  myDisplay = localStorage.getItem('sh-session-display');
+}catch(e){}
+ 
+document.getElementById('loginForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const u = document.getElementById('loginUsername').value.trim();
+  const d = document.getElementById('loginDisplay').value.trim();
+  const err = document.getElementById('loginErr');
+  if(!u || !d){ err.textContent = 'من فضلك أكمل الحقلين'; return; }
+  myUsername = u; myDisplay = d;
+  try{
+    localStorage.setItem('sh-session-username', u);
+    localStorage.setItem('sh-session-display', d);
+  }catch(ex){}
+  enterLobby();
+});
+ 
+function enterLobby(){
+  isAdmin = (myUsername === ADMIN_USERNAME);
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('lobbyScreen').classList.remove('hidden');
+  document.getElementById('adminActions').classList.toggle('hidden', !isAdmin);
+  document.getElementById('lobbySubText').textContent = isAdmin ? 'لوحة تحكم الجلسات' : 'قائمة انتظار الجلسات';
+  
+  refreshLobby();
+  clearInterval(lobbyTimer);
+  lobbyTimer = setInterval(refreshLobby, 5000); // كل 5 ثوانٍ
+}
+if(myUsername && myDisplay){ enterLobby(); }
+ 
+/* ================= اللوبي ================= */
+async function refreshLobby() {
+  if (API_URL.indexOf('PASTE_YOUR') === 0) { renderApiWarning(); return; }
+  const list = await api('list_sessions', {});
+  if (!Array.isArray(list)) return;
+  
+  knownSessions = list.filter(s => s.status !== 'ended');
+  
+  // تحويل الجلسات المجدولة التي حان وقتها
+  const now = new Date();
+  let converted = false;
+  for (const s of knownSessions) {
+    if (s.type === 'scheduled' && s.date && s.time) {
+      try {
+        const target = new Date(s.date + 'T' + s.time);
+        if (target.getTime() <= now.getTime() && !isNaN(target.getTime())) {
+          const r = await api('convert_to_now', { id: s.id });
+          if (r && r.ok) {
+            converted = true;
+            console.log('✅ تم تحويل الجلسة', s.id, 'إلى now');
+          }
+        }
+      } catch(e) { /* تجاهل */ }
+    }
+  }
+  
+  if (converted) {
+    // إعادة جلب القائمة بعد التحويل
+    const updatedList = await api('list_sessions', {});
+    if (Array.isArray(updatedList)) {
+      knownSessions = updatedList.filter(s => s.status !== 'ended');
+    }
+  }
+  
+  if (isAdmin) {
+    renderAdminSessions(knownSessions.filter(s => s.createdBy === myUsername));
+  } else {
+    const mine = knownSessions.filter(s => (s.students || '').split(',').map(x => x.trim()).includes(myUsername));
+    renderStudentSessions(mine);
+  }
+}
+function renderApiWarning(){
+  document.getElementById('sessionList').innerHTML =
+    '<div class="empty-state">لم يتم ربط رابط Apps Script بعد. الصق رابط الويب أب في متغير API_URL أعلى الملف.</div>';
+}
+ 
+function renderAdminSessions(list){
+  const el = document.getElementById('sessionList');
+  if(list.length === 0){ el.innerHTML = '<div class="empty-state">لا توجد جلسات محجوزة بعد</div>'; return; }
+  el.innerHTML = '';
+  list.forEach(s=>{
+    const div = document.createElement('div');
+    div.className = 'card session-item';
+    const label = s.type === 'now' ? 'مباشرة الآن' : (s.date + ' ' + s.time);
+    div.innerHTML = `
+      <span class="session-badge">${COURSE_LABELS[s.course]||s.course}</span>
+      <div class="session-meta"><strong>${s.details||'بدون تفاصيل'}</strong><span>${label} — بواسطتك</span></div>
+      <button class="btn btn-primary" data-join="${s.id}">دخول</button>
+      <button class="btn btn-outline" data-end="${s.id}" style="color:#c0392b;border-color:#c0392b;">إنهاء</button>
+    `;
+    el.appendChild(div);
+  });
+  el.querySelectorAll('[data-join]').forEach(b=>b.addEventListener('click', ()=>{
+    const s = list.find(x=>x.id===b.dataset.join); joinCall(s);
+  }));
+  el.querySelectorAll('[data-end]').forEach(b=>b.addEventListener('click', async ()=>{
+    await api('end_session', { id:b.dataset.end }); refreshLobby();
+  }));
+}
+ 
+function renderStudentSessions(list){
+  const el = document.getElementById('sessionList');
+  const mine = list.filter(s => 
+    (s.students || '').split(',').map(x => x.trim()).includes(myUsername)
+  );
+  
+  if(mine.length === 0){ 
+    el.innerHTML = '<div class="empty-state">لا يوجد جلسات منتظرة</div>'; 
+    return; 
+  }
+  
+  el.innerHTML = '';
+  mine.forEach(s=>{
+    const div = document.createElement('div');
+    div.className = 'card session-item';
+    div.dataset.sid = s.id;
+    div.dataset.type = s.type || 'scheduled';
+    div.dataset.date = s.date || '';
+    div.dataset.time = s.time || '';
+    
+    div.innerHTML = `
+      <span class="session-badge">${COURSE_LABELS[s.course] || s.course}</span>
+      <div class="session-meta">
+        <strong>${s.details || 'جلسة بدون عنوان'}</strong>
+        <span>${s.type === 'now' ? 'مباشرة الآن' : (s.date ? s.date + ' ' + s.time : 'لم يحدد')}</span>
+      </div>
+      <span class="session-count" data-count></span>
+      <button class="btn btn-primary" data-action style="display:none;">انضم الآن</button>
+    `;
+    el.appendChild(div);
+  });
+  
+  // ✅ إضافة مستمع الحدث هنا
+  el.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const item = e.target.closest('.session-item');
+      const sid = item.dataset.sid;
+      const session = knownSessions.find(x => x.id === sid);
+      if(session) joinCall(session);
+    });
+  });
+
+  renderCountdowns();
+}
+ 
+// التحقق من الجلسات التي حان وقتها وتحويلها إلى "مباشرة الآن"
+async function checkAndConvertScheduledSessions() {
+  const now = new Date();
+  const items = document.querySelectorAll('#sessionList .session-item[data-sid]');
+  
+  for (const item of items) {
+    const type = item.dataset.type;
+    if (type !== 'scheduled') continue;
+    
+    const sid = item.dataset.sid;
+    const dateVal = item.dataset.date || '';
+    const timeVal = item.dataset.time || '00:00';
+    
+    if (!dateVal || dateVal === 'undefined' || dateVal === 'null' || dateVal.trim() === '') continue;
+    
+    try {
+      const target = new Date(dateVal + 'T' + timeVal);
+      if (isNaN(target.getTime())) continue;
+      
+      // إذا حان الوقت أو مضى
+      if (target.getTime() <= now.getTime()) {
+        console.log(`⏰ تحويل الجلسة ${sid} إلى "مباشرة الآن"`);
+        // تحويل الجلسة إلى "now" عبر الخادم
+        const result = await api('convert_to_now', { id: sid });
+        if (result && result.ok) {
+          // تحديث القائمة المحلية
+          await refreshLobby(); // إعادة تحميل القائمة بالكامل
+          return; // نخرج بعد التحديث لتجنب تكرار العمليات
+        }
+      }
+    } catch (e) {
+      console.warn('خطأ في تحويل الجلسة:', e);
+    }
+  }
+}
+
+
+function renderCountdowns() {
+  document.querySelectorAll('#sessionList .session-item[data-sid]').forEach(item => {
+    const type = item.dataset.type;
+    const countEl = item.querySelector('[data-count]');
+    const btn = item.querySelector('[data-action]');
+
+    if (type === 'now') {
+      if (countEl) {
+        countEl.textContent = '🟢 مباشرة الآن';
+        countEl.style.color = '#27ae60';
+        countEl.style.fontWeight = 'bold';
+      }
+      if (btn) {
+        btn.style.display = 'inline-flex';
+        btn.textContent = 'انضم الآن';
+      }
+      return;
+    }
+
+    const dateVal = item.dataset.date || '';
+    const timeVal = item.dataset.time || '';
+    if (!dateVal || dateVal === 'undefined' || dateVal === 'null' || dateVal.trim() === '') {
+      if (countEl) {
+        countEl.textContent = '⏳ لم يحدد';
+        countEl.style.color = 'var(--muted)';
+      }
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+
+    if (countEl) {
+      let displayText = `📅 ${dateVal}`;
+      if (timeVal) displayText += ` الساعة ${timeVal}`;
+      countEl.textContent = displayText;
+      countEl.style.color = 'var(--gold-dark)';
+      countEl.style.fontWeight = '500';
+    }
+    if (btn) btn.style.display = 'none';
+  });
+}
+ 
+/* ================= إنشاء / حجز الجلسات ================= */
+document.getElementById('createNowBtn').addEventListener('click', async ()=>{
+  const course = prompt('اختر الكورس: english / programming / arabic / other', 'english');
+  if(!course) return;
+  const details = prompt('تفاصيل مختصرة (اختياري):','') || '';
+  
+  // ⭐ طلب أسماء المستخدمين المدعوين (مفصولة بفاصلة)
+  const studentsInput = prompt('أسماء المستخدمين المدعوين (افصل بفاصلة ,):', '');
+  if (studentsInput === null) return; // إذا ضغط إلغاء
+  
+  const students = studentsInput.trim();
+  if (!students) {
+    alert('يجب إدخال اسم مستخدم واحد على الأقل');
+    return;
+  }
+
+  const r = await api('create_session', { 
+    type:'now', 
+    course, 
+    details, 
+    createdBy:myUsername, 
+    students: students 
+  });
+  
+  if(r && r.ok){ 
+    await refreshLobby(); 
+    // المعلم ينضم تلقائياً للجلسة التي أنشأها
+    const s = knownSessions.find(x=>x.id===r.id) || {id:r.id,type:'now',course,details}; 
+    joinCall(s); 
+  }
+});
+ 
+document.getElementById('scheduleBtn').addEventListener('click', ()=>{
+  document.getElementById('scheduleModal').classList.remove('hidden');
+});
+document.getElementById('scheduleClose').addEventListener('click', closeScheduleModal);
+document.getElementById('scheduleCancel').addEventListener('click', closeScheduleModal);
+function closeScheduleModal(){ document.getElementById('scheduleModal').classList.add('hidden'); }
+ 
+document.getElementById('scheduleSubmit').addEventListener('click', async ()=>{
+  const course = document.getElementById('schCourse').value;
+  const date = document.getElementById('schDate').value;
+  const time = document.getElementById('schTime').value;
+  const details = document.getElementById('schDetails').value.trim();
+  const students = document.getElementById('schStudents').value.trim();
+  const err = document.getElementById('scheduleErr');
+  
+  if(!date || !time){ err.textContent='الرجاء اختيار تاريخ ووقت صحيحين'; return; }
+  if(!students){ err.textContent='أدخل اسم مستخدم واحد على الأقل'; return; }
+
+  // ✅ تأكد من إرسال التاريخ والوقت كنص
+  const r = await api('create_session', { 
+    type:'scheduled', 
+    course, 
+    date: String(date), 
+    time: String(time), 
+    details, 
+    createdBy:myUsername, 
+    students 
+  });
+  
+  if(r && r.ok){ 
+    closeScheduleModal(); 
+    refreshLobby(); 
+  } else { 
+    err.textContent='حدث خطأ في الخادم، تأكد من صيغة التاريخ YYYY-MM-DD'; 
+  }
+});
+ 
+/* ================= غرفة الاتصال (WebRTC) ================= */
+const RTC_CONFIG = { iceServers:[{urls:'stun:stun.l.google.com:19302'}] };
+ 
+async function joinCall(session){
+  currentSession = session; currentRoom='main'; lastSignalTs = 0; handRaised=false;
+  document.getElementById('lobbyScreen').classList.add('hidden');
+  document.getElementById('callScreen').classList.remove('hidden');
+  document.getElementById('callTitle').textContent = (COURSE_LABELS[session.course]||'') + ' — ' + (session.details||'جلسة مباشرة');
+  document.getElementById('roomsBtn').classList.toggle('hidden', myUsername !== (session.createdBy||ADMIN_USERNAME));
+  document.getElementById('videoGrid').innerHTML='';
+ 
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:true });
+  }catch(e){
+    try{ localStream = await navigator.mediaDevices.getUserMedia({ audio:true }); }
+    catch(e2){ localStream = new MediaStream(); }
+  }
+  addTile(myUsername, myDisplay, localStream, true);
+ 
+  clearInterval(presenceTimer); clearInterval(signalTimer);
+  pingPresence();
+  presenceTimer = setInterval(()=>{ pingPresence(); syncParticipants(); }, 2000);
+signalTimer = setInterval(pollSignals, 500);   // 0.5 ثانية بدلاً من 1.5 ثانية
+}
+ 
+async function pingPresence(){
+  if(!currentSession) return;
+  await api('presence_ping', { sessionId:currentSession.id, username:myUsername, displayName:myDisplay, room:currentRoom });
+}
+ 
+async function syncParticipants(){
+  if(!currentSession) return;
+  const list = await api('presence_list', { sessionId: currentSession.id });
+  if(!Array.isArray(list)) return;
+  document.getElementById('participantCount').textContent = list.length + ' مشارك';
+  const inMyRoom = list.filter(p => p.username !== myUsername && p.room === currentRoom);
+  // اتصل بأي شخص جديد في نفس الغرفة
+  inMyRoom.forEach(p=>{
+    if(!peers[p.username]){
+      const shouldOffer = myUsername < p.username;
+      startPeer(p.username, p.displayName, shouldOffer);
+    }
+  });
+  // اقفل أي اتصال لشخص خرج أو غيّر غرفة
+  Object.keys(peers).forEach(u=>{
+    if(!inMyRoom.find(p=>p.username===u)){
+      closePeer(u);
+    }
+  });
+  // لو المضيف حرّكني لغرفة تانية (اتقري من presence بتاعي نفسه لو اتغيرت من السيرفر)
+  const mine = list.find(p=>p.username===myUsername);
+  if(mine && mine.room && mine.room !== currentRoom){
+    currentRoom = mine.room;
+    Object.keys(peers).forEach(closePeer);
+  }
+}
+ 
+function startPeer(username, displayName, isOfferer) {
+  const pc = new RTCPeerConnection(RTC_CONFIG);
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') {
+      pc.getSenders().forEach(sender => {
+        if (sender.track && sender.track.kind === 'video') {
+          try {
+            const params = sender.getParameters();
+            if (!params.encodings) params.encodings = [{}];
+            params.encodings[0].maxBitrate = 300000;
+            sender.setParameters(params);
+          } catch(e) {}
+        }
+      });
+    }
+  };
+
+  peers[username] = pc;
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+  pc.onicecandidate = (ev) => {
+    if (ev.candidate) {
+      api('signal', { sessionId: currentSession.id, from: myUsername, to: username, msgType: 'candidate', payload: JSON.stringify(ev.candidate) });
+    }
+  };
+
+  // ✅ تعديل ontrack ليميز مسار الشاشة
+  pc.ontrack = (ev) => {
+    const isScreen = ev.track && ev.track.label === 'screen';
+    const tileId = isScreen ? username + '_screen' : username;
+    const display = displayName + (isScreen ? ' (شاشة)' : '');
+    const existing = document.getElementById('tile-' + cssSafe(tileId));
+    if (existing) {
+      // تحديث الدفق إذا كانت البلاطة موجودة
+      const video = existing.querySelector('video');
+      if (video) video.srcObject = ev.streams[0];
+    } else {
+      // إضافة بلاطة جديدة
+      addTile(tileId, display, ev.streams[0], false, isScreen);
+    }
+  };
+
+  if (isOfferer) {
+    pc.onnegotiationneeded = async () => {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      api('signal', { sessionId: currentSession.id, from: myUsername, to: username, msgType: 'offer', payload: JSON.stringify(offer) });
+    };
+  }
+}
+ 
+async function pollSignals(){
+  if(!currentSession) return;
+  const list = await api('poll_signals', { sessionId:currentSession.id, me:myUsername, since:lastSignalTs });
+  if(!Array.isArray(list) || list.length===0) return;
+  for(const sig of list){
+    lastSignalTs = Math.max(lastSignalTs, Number(sig.ts)||0);
+    await handleSignal(sig);
+  }
+}
+ 
+async function handleSignal(sig) {
+  const from = sig.from;
+  let payload = {};
+  try { payload = JSON.parse(sig.payload); } catch(e) {}
+
+  if (sig.msgType === 'offer') {
+    let pc = peers[from];
+    if (!pc) { startPeer(from, from, false); pc = peers[from]; }
+    await pc.setRemoteDescription(new RTCSessionDescription(payload));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    api('signal', { sessionId: currentSession.id, from: myUsername, to: from, msgType: 'answer', payload: JSON.stringify(answer) });
+  } else if (sig.msgType === 'answer') {
+    const pc = peers[from]; if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload));
+  } else if (sig.msgType === 'candidate') {
+    const pc = peers[from]; if (pc) { try { await pc.addIceCandidate(payload); } catch(e) {} }
+  } else if (sig.msgType === 'hand') {
+    showHand(from, payload.on);
+  } else if (sig.msgType === 'reaction') {
+    showReaction(from, payload.emoji);
+  } else if (sig.msgType === 'screen_start') {
+    // شخص آخر بدأ مشاركة الشاشة - نضيف بلاطة شاشة فارغة (سيتم ملؤها عبر ontrack)
+    const displayName = payload.displayName || from;
+    // نضيف بلاطة الشاشة في الشريط العلوي (بدون دفق حتى يصل عبر ontrack)
+    const tileId = from + '_screen';
+    const existing = document.getElementById('tile-' + cssSafe(tileId));
+    if (!existing) {
+      // نضيف بلاطة مؤقتة لتظهر في الشريط، وسيتم تحديث الدفق لاحقاً
+      addTile(tileId, displayName + ' (شاشة)', new MediaStream(), false, true);
+    }
+  } else if (sig.msgType === 'screen_stop') {
+    // إزالة بلاطة شاشة هذا المستخدم
+    const tile = document.getElementById('tile-' + cssSafe(from + '_screen'));
+    if (tile) tile.remove();
+    // إعادة تنظيم الشريط
+    const bar = document.getElementById('screenShareBar');
+    if (bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
+  }
+}
+
+ 
+function closePeer(username) {
+  if (peers[username]) { 
+    peers[username].close(); 
+    delete peers[username]; 
+  }
+  // إزالة البلاطات العادية وبلاطات الشاشة
+  ['', '_screen'].forEach(suffix => {
+    const tile = document.getElementById('tile-' + cssSafe(username + suffix));
+    if (tile) tile.remove();
+  });
+  // إعادة تنظيم الشريط إذا أصبح فارغاً
+  const bar = document.getElementById('screenShareBar');
+  if (bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
+}
+function cssSafe(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,'_'); }
+ 
+function addTile(username, displayName, stream, isLocal, isScreen = false) {
+  const id = cssSafe(username);
+  let tile = document.getElementById('tile-' + id);
+  if (!tile) {
+    tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.id = 'tile-' + id;
+    tile.dataset.username = username;
+    tile.dataset.isscreen = isScreen ? 'true' : 'false';
+    tile.innerHTML = `
+      <video autoplay playsinline ${isLocal ? 'muted' : ''}></video>
+      <div class="no-cam hidden"><div class="avatar-circle">${(displayName || '?').charAt(0).toUpperCase()}</div></div>
+      <span class="name-tag">${displayName || username}${isLocal ? ' (أنت)' : ''}${isScreen ? ' 📺' : ''}</span>
+    `;
+
+    // ⭐ إضافة مستمع الضغط المزدوج لملء الشاشة
+    tile.addEventListener('dblclick', function(e) {
+      // لا نريد تفعيل الملء إذا كانت البلاطة فارغة (لا فيديو)
+      const video = this.querySelector('video');
+      if (!video || !video.srcObject) return;
+      
+      // طلب ملء الشاشة
+      if (this.requestFullscreen) {
+        this.requestFullscreen().catch(err => {
+          console.warn('تعذر تفعيل ملء الشاشة:', err);
+        });
+      } else if (this.webkitRequestFullscreen) { // لدعم Safari قديم
+        this.webkitRequestFullscreen();
+      } else if (this.msRequestFullscreen) { // لدعم IE
+        this.msRequestFullscreen();
+      }
+    });
+
+    // إضافة للشريط العلوي إذا كانت شاشة، وإلا للشبكة الرئيسية
+    const container = isScreen ? document.getElementById('screenShareBar') : document.getElementById('videoGrid');
+    if (isScreen && !document.getElementById('screenShareBar')) {
+      const bar = document.createElement('div');
+      bar.id = 'screenShareBar';
+      bar.className = 'screen-share-bar';
+      bar.innerHTML = `<button class="screen-nav-btn" id="screenPrev">◀</button><div id="screenSlides" style="display:flex;gap:8px;flex:1;overflow-x:auto;"></div><button class="screen-nav-btn" id="screenNext">▶</button>`;
+      document.getElementById('callScreen').insertBefore(bar, document.getElementById('videoGrid'));
+      document.getElementById('screenPrev').addEventListener('click', () => navigateScreen(-1));
+      document.getElementById('screenNext').addEventListener('click', () => navigateScreen(1));
+    }
+
+    if (isScreen) {
+      document.getElementById('screenSlides').appendChild(tile);
+    } else {
+      document.getElementById('videoGrid').appendChild(tile);
+    }
+  }
+  const v = tile.querySelector('video');
+  v.srcObject = stream;
+  if (isScreen) updateScreenVisibility();
+}
+
+function updateScreenVisibility() {
+  const slides = document.getElementById('screenSlides');
+  if (!slides) return;
+  const tiles = slides.querySelectorAll('.tile');
+  tiles.forEach((t, i) => {
+    t.style.display = (i === currentScreenIndex || tiles.length === 1) ? 'block' : 'none';
+  });
+}
+
+function navigateScreen(dir) {
+  const slides = document.getElementById('screenSlides');
+  if (!slides) return;
+  const tiles = slides.querySelectorAll('.tile');
+  if (tiles.length <= 1) return;
+  currentScreenIndex = (currentScreenIndex + dir + tiles.length) % tiles.length;
+  updateScreenVisibility();
+}
+
+function showHand(username, on){
+  const tile = document.getElementById('tile-'+cssSafe(username));
+  if(!tile) return;
+  let badge = tile.querySelector('.hand-badge');
+  if(on){
+    if(!badge){ badge = document.createElement('div'); badge.className='hand-badge'; badge.textContent='✋'; tile.appendChild(badge); }
+  } else if(badge){ badge.remove(); }
+}
+function showReaction(username, emoji){
+  const tile = document.getElementById('tile-'+cssSafe(username));
+  if(!tile) return;
+  const el = document.createElement('div');
+  el.className = 'reaction-float'; el.textContent = emoji;
+  tile.appendChild(el);
+  setTimeout(()=>el.remove(), 1800);
+}
+ 
+/* ===== أزرار التحكم ===== */
+document.getElementById('micBtn').addEventListener('click', function(){
+  if(!localStream) return;
+  const track = localStream.getAudioTracks()[0]; if(!track) return;
+  track.enabled = !track.enabled;
+  this.classList.toggle('off', !track.enabled);
+});
+document.getElementById('camBtn').addEventListener('click', function(){
+  if(!localStream) return;
+  const track = localStream.getVideoTracks()[0]; if(!track) return;
+  track.enabled = !track.enabled;
+  this.classList.toggle('off', !track.enabled);
+  const tile = document.getElementById('tile-'+cssSafe(myUsername));
+  if(tile) tile.querySelector('.no-cam').classList.toggle('hidden', track.enabled);
+});
+document.getElementById('screenBtn').addEventListener('click', async function(){
+  if(screenStream){
+    // إيقاف المشاركة
+    screenStream.getTracks().forEach(t=>t.stop());
+    screenStream = null;
+    // إزالة بلاطة الشاشة المحلية
+    const tile = document.getElementById('tile-'+cssSafe(myUsername+'_screen'));
+    if(tile) tile.remove();
+    // إزالة المسار من جميع الاتصالات
+    Object.values(peers).forEach(pc => {
+      const senders = pc.getSenders().filter(s => s.track && s.track.kind === 'video' && s.track.label === 'screen');
+      senders.forEach(s => pc.removeTrack(s));
+    });
+    // إرسال إشارة توقف للآخرين
+    Object.keys(peers).forEach(u => {
+      api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'screen_stop', payload:'' });
+    });
+    this.classList.remove('active');
+    // إعادة ضبط الشبكة
+    const bar = document.getElementById('screenShareBar');
+    if(bar && bar.querySelectorAll('.tile').length === 0) bar.remove();
+    return;
+  }
+
+  try{
+    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' }, audio: false });
+    const screenTrack = screenStream.getVideoTracks()[0];
+    screenTrack.label = 'screen';
+    
+    // إضافة البلاطة المحلية للشاشة
+    addTile(myUsername + '_screen', myDisplay + ' (شاشة)', screenStream, false, true);
+    
+    // إضافة المسار لجميع الأطراف المتصلة
+    Object.values(peers).forEach(pc => {
+      pc.addTrack(screenTrack, screenStream);
+    });
+    
+    // إرسال إشارة بدء للآخرين (ليضيفوا المسار)
+    Object.keys(peers).forEach(u => {
+      api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'screen_start', payload:JSON.stringify({displayName:myDisplay}) });
+    });
+    
+    this.classList.add('active');
+    
+    screenTrack.onended = ()=>{ this.click(); };
+  }catch(e){ console.warn('فشل مشاركة الشاشة', e); }
+});
+document.getElementById('handBtn').addEventListener('click', function(){
+  handRaised = !handRaised;
+  this.classList.toggle('active', handRaised);
+  showHand(myUsername, handRaised);
+  Object.keys(peers).forEach(u=>{
+    api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'hand', payload:JSON.stringify({on:handRaised}) });
+  });
+});
+document.getElementById('emojiBtn').addEventListener('click', ()=>{
+  document.getElementById('emojiPop').classList.toggle('hidden');
+});
+document.getElementById('emojiPop').addEventListener('click', (e)=>{
+  const emo = e.target.dataset.e; if(!emo) return;
+  showReaction(myUsername, emo);
+  Object.keys(peers).forEach(u=>{
+    api('signal', { sessionId:currentSession.id, from:myUsername, to:u, msgType:'reaction', payload:JSON.stringify({emoji:emo}) });
+  });
+  document.getElementById('emojiPop').classList.add('hidden');
+});
+document.getElementById('leaveBtn').addEventListener('click', leaveCall);
+ 
+function leaveCall(){
+  clearInterval(presenceTimer); clearInterval(signalTimer);
+  Object.keys(peers).forEach(closePeer);
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  if(screenStream) screenStream.getTracks().forEach(t=>t.stop());
+  localStream=null; screenStream=null; currentSession=null;
+  document.getElementById('videoGrid').innerHTML='';
+  document.getElementById('callScreen').classList.add('hidden');
+  document.getElementById('lobbyScreen').classList.remove('hidden');
+  refreshLobby();
+}
+ 
+/* ===== الغرف الفرعية (للمضيف) ===== */
+document.getElementById('roomsBtn').addEventListener('click', async ()=>{
+  const list = await api('presence_list', { sessionId: currentSession.id });
+  renderRoomsPanel(Array.isArray(list)?list:[]);
+  document.getElementById('roomsPanel').classList.remove('hidden');
+});
+document.getElementById('roomsClose').addEventListener('click', ()=>document.getElementById('roomsPanel').classList.add('hidden'));
+ 
+let roomNames = ['main'];
+document.getElementById('addRoomBtn').addEventListener('click', async ()=>{
+  roomNames.push('room'+roomNames.length);
+  const list = await api('presence_list', { sessionId: currentSession.id });
+  renderRoomsPanel(Array.isArray(list)?list:[]);
+});
+ 
+function renderRoomsPanel(list){
+  const el = document.getElementById('roomsList');
+  el.innerHTML='';
+  list.forEach(p=>{
+    const row = document.createElement('div');
+    row.className='room-participant-row';
+    const opts = roomNames.map(r=>`<option value="${r}" ${p.room===r?'selected':''}>${r==='main'?'الرئيسية':r}</option>`).join('');
+    row.innerHTML = `<span>${p.displayName||p.username}</span><select data-user="${p.username}">${opts}</select>`;
+    el.appendChild(row);
+  });
+  el.querySelectorAll('select').forEach(sel=>{
+    sel.addEventListener('change', async ()=>{
+      await api('set_room', { sessionId:currentSession.id, username:sel.dataset.user, room:sel.value });
+    });
+  });
+}
+// ================= زر تسجيل الخروج =================
+document.getElementById('logoutBtn').addEventListener('click', function() {
+  // 1. لو كان في مكالمة، نغلقها أولاً
+  if (currentSession) {
+    leaveCall(); // الدالة موجودة بالفعل
+  }
+
+  // 2. نوقف أي مؤقتات متبقية
+  clearInterval(lobbyTimer);
+  clearInterval(presenceTimer);
+  clearInterval(signalTimer);
+
+  // 3. نمسح بيانات المستخدم من الذاكرة والتخزين المحلي
+  myUsername = null;
+  myDisplay = null;
+  isAdmin = false;
+  currentSession = null;
+  localStorage.removeItem('sh-session-username');
+  localStorage.removeItem('sh-session-display');
+
+  // 4. نغلق أي اتصالات WebRTC متبقية (احتياطي)
+  Object.keys(peers).forEach(closePeer);
+
+  // 5. نخفي كل الشاشات ونظهر شاشة الدخول
+  document.getElementById('lobbyScreen').classList.add('hidden');
+  document.getElementById('callScreen').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+
+  // 6. نمسح حقول الإدخال في شاشة الدخول
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginDisplay').value = '';
+  document.getElementById('loginErr').textContent = '';
+
+  // 7. نعيد ضبط زر الكاميرا والميكروفون في شاشة المكالمة (للتأكد)
+  document.getElementById('micBtn').classList.remove('off');
+  document.getElementById('camBtn').classList.remove('off');
+  document.getElementById('handBtn').classList.remove('active');
+  document.getElementById('screenBtn').classList.remove('active');
+
+  // 8. نمسح قائمة الفيديو
+  document.getElementById('videoGrid').innerHTML = '';
+});
+
+document.addEventListener("keydown", function (e) {
+    // منع Ctrl + U
+    if (e.ctrlKey && e.key.toLowerCase() === "u") {
+        e.preventDefault();
+        return false;
+    }
+});
+
+document.addEventListener("contextmenu", function (e) {
+    e.preventDefault();
+});
+</script>
+</body>
+</html>
